@@ -1,0 +1,5 @@
+/home/iviosab/Desktop/sem7/computer-graphics-in-game-development/Build/CMakeFiles/Rasterization.dir
+/home/iviosab/Desktop/sem7/computer-graphics-in-game-development/Build/CMakeFiles/Raytracing.dir
+/home/iviosab/Desktop/sem7/computer-graphics-in-game-development/Build/CMakeFiles/DirectX12.dir
+/home/iviosab/Desktop/sem7/computer-graphics-in-game-development/Build/CMakeFiles/edit_cache.dir
+/home/iviosab/Desktop/sem7/computer-graphics-in-game-development/Build/CMakeFiles/rebuild_cache.dir
