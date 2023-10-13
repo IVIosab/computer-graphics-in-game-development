@@ -46,8 +46,8 @@ Premake5.exe
 *.log
 *.tlog/
 
-# Images
-*.png
+# Images not ignored to show local output
+# *.png
 
 # VS code
 .vscode/
