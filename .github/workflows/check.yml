@@ -1,5 +1,5 @@
 name: Check labs
-on: [push]
+on: [push, workflow_dispatch]
 jobs:
   build-and-check:
     name: Check labs
