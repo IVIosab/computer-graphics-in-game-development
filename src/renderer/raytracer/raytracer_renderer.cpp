@@ -30,6 +30,8 @@ void cg::renderer::ray_tracing_renderer::init()
 	raytracer = std::make_shared<cg::renderer::raytracer<cg::vertex, cg::unsigned_color>>();
 	raytracer->set_viewport(settings->width, settings->height);
 	raytracer->set_render_target(render_target);
+    raytracer->set_vertex_buffers(model->get_vertex_buffers());
+	raytracer->set_index_buffers(model->get_index_buffers());
 
 	// TODO Lab: 2.03 Add light information to `lights` array of `ray_tracing_renderer`
 	// TODO Lab: 2.04 Initialize `shadow_raytracer` in `ray_tracing_renderer`
@@ -46,6 +48,13 @@ void cg::renderer::ray_tracing_renderer::render()
 		payload.color = {0.f, 0.f, (ray.direction.y + 1.f) * 0.5f};
 		return  payload;
 	};
+	raytracer->closest_hit_shader = [](const ray& ray, payload& payload,
+									   const triangle<cg::vertex>& triangle,
+									   size_t depth){
+		payload.color = cg::color::from_float3(triangle.diffuse);
+		return payload;
+	};
+	raytracer->build_acceleration_structure();
 	raytracer->clear_render_target({0,0,0,});
 
 	auto start = std::chrono::high_resolution_clock::now();
