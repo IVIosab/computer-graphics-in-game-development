@@ -32,14 +32,6 @@ void cg::renderer::ray_tracing_renderer::init()
 	raytracer->set_render_target(render_target);
 	raytracer->set_vertex_buffers(model->get_vertex_buffers());
 	raytracer->set_index_buffers(model->get_index_buffers());
-
-	shadow_raytracer = std::make_shared<cg::renderer::raytracer<cg::vertex, cg::unsigned_color>>();
-
-
-	lights.push_back({
-		float3(0.f, 1.58f, -0.03f),
-			float3(0.78f, 0.78f, 0.78f),
-	});
 }
 
 void cg::renderer::ray_tracing_renderer::destroy() {}
@@ -50,9 +42,12 @@ void cg::renderer::ray_tracing_renderer::render()
 {
 	raytracer->miss_shader = [](const ray& ray){
 		payload payload{};
-		payload.color = {0.f, 0.f, (ray.direction.y + 1.f) * 0.5f};
+		payload.color = {0.f, 0.f, 0.f};
 		return  payload;
 	};
+	std::random_device random_device;
+	std::mt19937 random_generator(random_device());
+	std::uniform_real_distribution<float> uni_dist(-1.f, 1.f);
 	raytracer->closest_hit_shader = [&](const ray& ray, payload& payload,
 									   const triangle<cg::vertex>& triangle,
 									   size_t depth){
@@ -62,30 +57,24 @@ void cg::renderer::ray_tracing_renderer::render()
 
 		float3 res_color = triangle.emissive;
 
-		for (auto& light: lights){
-			cg::renderer::ray to_light(position, light.position-position);
-			auto shadow_payload = shadow_raytracer->trace_ray(to_light, 1, length(light.position - position));
-			if(shadow_payload.t < 0) {
-				res_color += light.color * triangle.diffuse * std::max(0.f, dot(normal, to_light.direction));
-			}
+		float3 rand_direction{
+				uni_dist(random_generator),
+				uni_dist(random_generator),
+				uni_dist(random_generator),
+		};
+		if(dot(rand_direction, normal)<0.f){
+			rand_direction = -rand_direction;
 		}
+		cg::renderer::ray to_rand_direction(position, rand_direction);
+		auto next_payload = raytracer->trace_ray(to_rand_direction, depth);
+		res_color += next_payload.color.to_float3() * triangle.diffuse * std::max(0.f, dot(normal, to_rand_direction.direction));
 
 		payload.color = cg::color::from_float3(res_color);
 		return payload;
 	};
 
-	shadow_raytracer->any_hit_shader = [](const ray& ray, payload& payload, const triangle<cg::vertex>& triangle) {
-		return payload;
-	};
-	shadow_raytracer->miss_shader = [](const ray& ray){
-		payload payload{};
-		payload.t = -1.f;
-		return payload;
-	};
-
 	raytracer->build_acceleration_structure();
 	raytracer->clear_render_target({0,0,0,});
-	shadow_raytracer->acceleration_structures = raytracer->acceleration_structures;
 
 	auto start = std::chrono::high_resolution_clock::now();
 	raytracer->ray_generation(
