@@ -216,7 +216,7 @@ namespace cg::renderer
 				}
 			}
 		}
-		// TODO Lab: 2.06 Implement TAA in `ray_generation` method of `raytracer` class
+
 	}
 
 	template<typename VB, typename RT>

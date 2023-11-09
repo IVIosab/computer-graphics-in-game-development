@@ -86,7 +86,4 @@ void cg::renderer::ray_tracing_renderer::render()
 	std::cout<<"Ray tracing took "<< rt_duration.count()<<"ms\n";
 
 	cg::utils::save_resource(*render_target, settings->result_path);
-
-
-	// TODO Lab: 2.06 (Bonus) Adjust `closest_hit_shader` for Monte-Carlo light tracing
 }
