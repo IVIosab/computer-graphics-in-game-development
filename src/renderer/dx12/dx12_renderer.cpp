@@ -174,25 +174,118 @@ D3D12_STATIC_SAMPLER_DESC cg::renderer::dx12_renderer::get_sampler_descriptor()
 
 void cg::renderer::dx12_renderer::create_root_signature(const D3D12_STATIC_SAMPLER_DESC* sampler_descriptors, UINT num_sampler_descriptors)
 {
-	// TODO Lab: 3.05 Create a descriptor table and a root signature
+	CD3X12_ROOT_PARAMETER1 root_parameters[1];
+	CD3DX12_DESCCRIPTOR_RANGE1 ranges[1];
+
+	ranges[0].Init(D3D12_DESCRIPTOR_RANGE_TYPE_CBV,
+				   1, 0, 0, D3D12_DESCRIPTOR_RANGE_FLAG_DATA_STATIC);
+	root_parameters[0].InitAsDescriptorTable(1, &ranges[0],
+											 D3D12_SHADER_VISIBILITY_ALL);
+
+	D3D12_FEATURE_DATA_ROOT_SIGNATURE rs_feature_data{};
+	rs_feature_data.HighestVersion = D3D_ROOT_SIGNATURE_VERSION_1_1;
+	if(FAILED(device->CheckFeatureSupport(
+				D3D12_FEATURE_ROOT_SIGNATURE,
+				&rs_feature_data,
+				sizeof(rs_feature_data)))){
+		rs_feature_data.HighestVersion = D3D_ROOT_SIGNATURE_VERSION_1_0;
+	}
+
+	CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC rs_desc;
+	rs_desc.Init_1_1(
+			_countof(root_parameters),
+			root_parameters,
+			num_sampler_descriptors,
+			sampler_descriptors,
+			D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT
+			);
+	ComPtr<ID3DBlob> signature, error;
+
+	RESULT result = D3DX12SerializeVersionedRootSignature(&rs_desc,
+										  rs_feature_data.HighestVersion,
+										  &signature,
+										  &error);
+	if(FAILED(result)){
+		OutputDebugStringA((char *) error->GetBufferPointer());
+		TRHOW_IF_FAILED(result);
+	}
+
+	THROW_IF_FAILED(device->CreateRootSignature(0,
+												signature->GetBufferPointer(),
+												signature->GetBufferSize(),
+												IID_PPV_ARGS(&root_signature)));
 }
 
 std::filesystem::path cg::renderer::dx12_renderer::get_shader_path(const std::string& shader_name)
 {
-	// TODO Lab: 3.05 Compile shaders
-	return "";
+	WCHAR buffer[MAX_PATH];
+	GetModuleFileName(nullptr, buffer, MAX_PATH);
+	return std::filesystem::path(buffer).parent_path() / shader_name;
 }
 
 ComPtr<ID3DBlob> cg::renderer::dx12_renderer::compile_shader(const std::filesystem::path& shader_path, const std::string& entrypoint, const std::string& target)
 {
-	// TODO Lab: 3.05 Compile shaders
-	return nullptr;
+	ComPtr<ID3DBlob> shader, error;
+	UINT compile_flags = 0;
+#ifdef _DEBUG
+	compile_flags |= D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION;
+#endif
+	HRESULT result = D3DCompileFromFile(
+			shader_path.wstring().c_str(),
+			nullptr,
+			nullptr,
+			entrypoint.c_str(),
+			target.c_str(),
+			compile_flags,
+			0,
+			&shader,
+			&error);
+	if(FAILED(result)){
+		OutputDebugStringA((char*) error->GetBufferPointer());
+		THROW_IF_FAILED(result);
+	}
+	return shader
+
 }
 
 void cg::renderer::dx12_renderer::create_pso(const std::string& shader_name)
 {
-	// TODO Lab: 3.05 Compile shaders
-	// TODO Lab: 3.05 Setup a PSO descriptor and create a PSO
+	ComPtr<ID3DBlob> vertex_shader = compile_shader(
+			get_shader_path(shader_name), "VSMain", "vs_5_0");
+	ComPtr<ID3DBlob> pixel_shader = compile_shader(
+			get_shader_path(shader_name), "PSMain", "ps_5_0");
+
+	D3D12_INPUT_ELEMENT_DESC input_descriptors[] = {
+			{"POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT,
+			 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0},
+			{"NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT,
+			 0, 12, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0},
+			{"TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT,
+			 0, 24, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0},
+			{"COLOR", 1, DXGI_FORMAT_R32G32B32_FLOAT,
+			 0, 44, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0},
+			{"COLOR", 2, DXGI_FORMAT_R32G32B32_FLOAT,
+			 0, 56, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0},
+	};
+
+	D3D12_GRAPHICS_PIPELINE_STATE_DESC pso_desc{};
+	pso_desc.InputLayout = {input_descriptors, _countof(input_descriptors)};
+	pso_desc.pRootSignature = root_signature.Get();
+	pso_desc.VS = CD3DX12_SHADER_BYTECODE(vertex_shader.Get());
+	pso_desc.PS = CD3DX12_SHADER_BYTECODE(pixel_shader.Get());
+	pso_desc.RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
+	pso_desc.RasterizerState.FrontCounterClockwise = TRUE;
+	pso_desc.RasterizerState.FillMode = D3D12_FILL_MODE_SOLID;
+	pso_desc.BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
+	pso_desc.DepthStencilState.DepthEnable = FALSE;
+	pso_desc.DepthStencilState.StencilEnable = FALSE;
+	pso_desc.SampleMask = UINT_MAX;
+	pso_desc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
+	pso_desc.NumRenderTargets = 1;
+	pso_desc.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;
+	pso_desc.SampleDesc.Count = 1;
+
+	THROW_IF_FAILED(device->CreateGraphicsPipelineState(&pso_desc, IID_PPV_ARGS(&pipeline_state)));
 }
 
 void cg::renderer::dx12_renderer::create_resource_on_upload_heap(ComPtr<ID3D12Resource>& resource, UINT size, const std::wstring& name)
@@ -263,8 +356,8 @@ void cg::renderer::dx12_renderer::create_constant_buffer_view(const ComPtr<ID3D1
 
 void cg::renderer::dx12_renderer::load_assets()
 {
-	// TODO Lab: 3.05 Create a descriptor table and a root signature
-	// TODO Lab: 3.05 Setup a PSO descriptor and create a PSO
+	create_root_signature(nullptr, 0);
+	create_pso("shader.hlsl");
 	// TODO Lab: 3.06 Create command allocators and a command list
 
 	cbv_srv_heap.create_heap(
