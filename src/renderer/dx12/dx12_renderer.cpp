@@ -27,6 +27,17 @@ void cg::renderer::dx12_renderer::init()
 	camera->set_angle_of_view(settings->camera_angle_of_view);
 	camera->set_z_near(settings->camera_z_near);
 	camera->set_z_far(settings->camera_z_far);
+
+		view_port = CD3DX12_VIEWPORT(0.f, 0.f,
+									 static_cast<float>(settings->width),
+									 static_cast<float>(settings->height));
+
+		scissor_rect = CD3DX12_RECT(0, 0,
+									 static_cast<LONG>(settings->width),
+									 static_cast<LONG>(settings->height));
+
+		load_pipeline();
+		load_assets();
 }
 
 void cg::renderer::dx12_renderer::destroy()
@@ -47,24 +58,70 @@ void cg::renderer::dx12_renderer::render()
 
 ComPtr<IDXGIFactory4> cg::renderer::dx12_renderer::get_dxgi_factory()
 {
-	// TODO Lab: 3.02 Enable a validation layer
-	return nullptr;
+	UINT dxgi_factory_flags = 0;
+#ifdef _DEBUG
+	ComPtr<ID3D12Debug> debug_controller;
+	if(SUCCEEDED(D3D12GetDebugInterface(IID_PPV_ARGS(&debug_controller))))
+	{
+		debug_controller->EnableDebugLayer();
+		dxgi_factory_flags |= DXGI_CREATE_FACTORY_DEBUG;
+	};
+#endif
+	ComPtr<IDXGIFactory4> dxgi_factory;
+	THROW_IF_FAILED(CreateDXGIFactory2(dxgi_factory_flags, IID_PPV_ARGS(&dxgi_factory)));
+	return dxgi_factory;
 }
 
 void cg::renderer::dx12_renderer::initialize_device(ComPtr<IDXGIFactory4>& dxgi_factory)
 {
-	// TODO Lab: 3.02 Enumerate hardware adapters
-	// TODO Lab: 3.02 Create a device object
+	ComPtr<IDXGIAdapter1> hardware_adapter;
+	dxgi_factory->EnumAdapters1(0, &hardware_adapter);
+#ifdef _DEBUG
+	DXGI_ADAPTER_DESC adapter_desc{};
+	hardware_adapter->GetDesc(&adapter_desc);
+	OutputDebugString(adapter_desc.Description);
+	OutputDebugString(L"\n");
+#endif
+	THROW_IF_FAILED(D3D12CreateDevice(hardware_adapter.Get(),
+					  D3D_FEATURE_LEVEL_11_0,
+					  IID_PPV_ARGS(&device)));
 }
 
 void cg::renderer::dx12_renderer::create_direct_command_queue()
 {
-	// TODO Lab: 3.02 Create a command queue
+	D3D12_COMMAND_QUEUE_DESC queue_desc{};
+	queue_desc.Type = D3D12_COMMAND_LIST_TYPE_DIRECT;
+	queue_desc.Flags = D3D12_COMMAND_QUEUE_FLAG_NONE;
+	THROW_IF_FAILED(device->CreateCommandQueue(&queue_desc,
+							   IID_PPV_ARGS(&command_queue)));
 }
 
 void cg::renderer::dx12_renderer::create_swap_chain(ComPtr<IDXGIFactory4>& dxgi_factory)
 {
-	// TODO Lab: 3.02 Create a swap chain and bind it to window
+	DXGI_SWAP_CHAIN_DESC1 swap_chain_desc{};
+	swap_chain_desc.BufferCount = frame_number;
+	swap_chain_desc.Height = settings->height;
+	swap_chain_desc.Width = settings->width;
+	swap_chain_desc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+	swap_chain_desc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
+	swap_chain_desc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_SEQUENTIAL;
+	swap_chain_desc.SampleDesc.Count = 1;
+
+	ComPtr<IDXGISwapChain1> temp_swap_chain;
+	THROW_IF_FAILED(dxgi_factory->CreateSwapChainForHwnd(
+			command_queue.Get(),
+			cg::utils::window::get_hwnd(),
+			&swap_chain_desc,
+			nullptr,
+			nullptr,
+			&temp_swap_chain
+			));
+	dxgi_factory->MakeWindowAssociation(
+			cg::utils::window::get_hwnd(),
+			DXGI_MWA_NO_ALT_ENTER
+			);
+	temp_swap_chain.As(&swap_chain);
+	frame_index = swap_chain->GetCurrentBackBufferIndex();
 }
 
 void cg::renderer::dx12_renderer::create_render_target_views()
@@ -90,7 +147,10 @@ void cg::renderer::dx12_renderer::create_command_list()
 
 void cg::renderer::dx12_renderer::load_pipeline()
 {
-	// TODO Lab: 3.02 Bring everything together in `load_pipeline` method
+	ComPtr<IDXGIFactory4> dxgi_factory = get_dxgi_factory();
+	initialize_device(dxgi_factory);
+	create_direct_command_queue();
+	create_swap_chain(dxgi_factory);
 	// TODO Lab: 3.04 Create render target views
 }
 
