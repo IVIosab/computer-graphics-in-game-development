@@ -11,7 +11,22 @@
 
 void cg::renderer::dx12_renderer::init()
 {
-	// TODO Lab: 3.01 Add `model` and `camera` creation code into `init` method of `dx12_renderer` class
+	model = std::make_shared<cg::world::model>();
+	model->load_obj(settings->model_path);
+
+	camera = std::make_shared<cg::world::camera>();
+	camera->set_height(static_cast<float>(settings->height));
+	camera->set_width(static_cast<float>(settings->width));
+	camera->set_position(float3{
+			settings->camera_position[0],
+			settings->camera_position[1],
+			settings->camera_position[2]
+	});
+	camera->set_theta(settings->camera_theta);
+	camera->set_phi(settings->camera_phi);
+	camera->set_angle_of_view(settings->camera_angle_of_view);
+	camera->set_z_near(settings->camera_z_near);
+	camera->set_z_far(settings->camera_z_far);
 }
 
 void cg::renderer::dx12_renderer::destroy()
