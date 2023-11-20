@@ -28,16 +28,16 @@ void cg::renderer::dx12_renderer::init()
 	camera->set_z_near(settings->camera_z_near);
 	camera->set_z_far(settings->camera_z_far);
 
-		view_port = CD3DX12_VIEWPORT(0.f, 0.f,
-									 static_cast<float>(settings->width),
-									 static_cast<float>(settings->height));
+	view_port = CD3DX12_VIEWPORT(0.f, 0.f,
+								 static_cast<float>(settings->width),
+								 static_cast<float>(settings->height));
 
-		scissor_rect = CD3DX12_RECT(0, 0,
+	scissor_rect = CD3DX12_RECT(0, 0,
 									 static_cast<LONG>(settings->width),
 									 static_cast<LONG>(settings->height));
 
-		load_pipeline();
-		load_assets();
+	load_pipeline();
+	load_assets();
 }
 
 void cg::renderer::dx12_renderer::destroy()
@@ -196,8 +196,8 @@ D3D12_STATIC_SAMPLER_DESC cg::renderer::dx12_renderer::get_sampler_descriptor()
 
 void cg::renderer::dx12_renderer::create_root_signature(const D3D12_STATIC_SAMPLER_DESC* sampler_descriptors, UINT num_sampler_descriptors)
 {
-	CD3X12_ROOT_PARAMETER1 root_parameters[1];
-	CD3DX12_DESCCRIPTOR_RANGE1 ranges[1];
+	CD3DX12_ROOT_PARAMETER1 root_parameters[1];
+	CD3DX12_DESCRIPTOR_RANGE1 ranges[1];
 
 	ranges[0].Init(D3D12_DESCRIPTOR_RANGE_TYPE_CBV,
 				   1, 0, 0, D3D12_DESCRIPTOR_RANGE_FLAG_DATA_STATIC);
@@ -223,13 +223,13 @@ void cg::renderer::dx12_renderer::create_root_signature(const D3D12_STATIC_SAMPL
 			);
 	ComPtr<ID3DBlob> signature, error;
 
-	RESULT result = D3DX12SerializeVersionedRootSignature(&rs_desc,
+	HRESULT result = D3DX12SerializeVersionedRootSignature(&rs_desc,
 										  rs_feature_data.HighestVersion,
 										  &signature,
 										  &error);
 	if(FAILED(result)){
 		OutputDebugStringA((char *) error->GetBufferPointer());
-		TRHOW_IF_FAILED(result);
+		THROW_IF_FAILED(result);
 	}
 
 	THROW_IF_FAILED(device->CreateRootSignature(0,
@@ -266,7 +266,7 @@ ComPtr<ID3DBlob> cg::renderer::dx12_renderer::compile_shader(const std::filesyst
 		OutputDebugStringA((char*) error->GetBufferPointer());
 		THROW_IF_FAILED(result);
 	}
-	return shader
+	return shader;
 
 }
 
@@ -312,10 +312,10 @@ void cg::renderer::dx12_renderer::create_pso(const std::string& shader_name)
 
 void cg::renderer::dx12_renderer::create_resource_on_upload_heap(ComPtr<ID3D12Resource>& resource, UINT size, const std::wstring& name)
 {
-	THROW_IF_FAILED(device->CreateComittedResource(
+	THROW_IF_FAILED(device->CreateCommittedResource(
 			&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),
 			D3D12_HEAP_FLAG_NONE,
-			&CD3D12_RESOURCE_DESC::Buffer(size),
+			&CD3DX12_RESOURCE_DESC::Buffer(size),
 			D3D12_RESOURCE_STATE_GENERIC_READ,
 			nullptr,
 			IID_PPV_ARGS(&resource)
@@ -331,7 +331,7 @@ void cg::renderer::dx12_renderer::create_resource_on_default_heap(ComPtr<ID3D12R
 
 void cg::renderer::dx12_renderer::copy_data(const void* buffer_data, UINT buffer_size, ComPtr<ID3D12Resource>& destination_resource)
 {
-	UINT8 buffer_data_begin;
+	UINT8* buffer_data_begin;
 	CD3DX12_RANGE read_range(0, 0);
 	THROW_IF_FAILED(
 			destination_resource->Map(0, &read_range,
@@ -394,13 +394,12 @@ void cg::renderer::dx12_renderer::load_assets()
 	vertex_buffers.resize(num_shapes);
 	vertex_buffer_views.resize(num_shapes);
 	index_buffers.resize(num_shapes);
-	index_buffers_views.resize(num_shapes);
-	for (size_t i = 0; i< model->get_vertex_buffers().size(); i++){
+	index_buffer_views.resize(num_shapes);
+	for (size_t i = 0; i < num_shapes; i++){
 		//Vertex buffer
 		auto vertex_buffer_data = model->get_vertex_buffers()[i];
 		const UINT vertex_buffer_size = static_cast<UINT>(
-				vertex_buffer_data->get_size_in_bytes()
-		);
+				vertex_buffer_data->get_size_in_bytes());
 
 		std::wstring vertex_buffer_name(L"Vertex buffer ");
 		vertex_buffer_name += std::to_wstring(i);
@@ -542,7 +541,7 @@ void cg::renderer::dx12_renderer::move_to_next_frame()
 void cg::renderer::dx12_renderer::wait_for_gpu()
 {
 	THROW_IF_FAILED(command_queue->Signal(fence.Get(), fence_values[frame_index]));
-	THROW_IF_FAILED(fence->SetEventOfCompletion(
+	THROW_IF_FAILED(fence->SetEventOnCompletion(
 			fence_values[frame_index],
 			fence_event));
 
