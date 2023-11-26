@@ -64,7 +64,7 @@ void cg::renderer::dx12_renderer::render()
 	ID3D12CommandList* command_lists[] = {command_list.Get()};
 	command_queue->ExecuteCommandLists(_countof(command_lists), command_lists);
 
-	THROW_IF_FAILED(swap_chain->Present(0, 0));
+	THROW_IF_FAILED(swap_chain->Present(0,0));
 
 	move_to_next_frame();
 }
@@ -284,6 +284,8 @@ void cg::renderer::dx12_renderer::create_pso(const std::string& shader_name)
 			 0, 12, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0},
 			{"TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT,
 			 0, 24, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0},
+			{"COLOR", 0, DXGI_FORMAT_R32G32B32_FLOAT,
+			 0, 32, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0},
 			{"COLOR", 1, DXGI_FORMAT_R32G32B32_FLOAT,
 			 0, 44, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0},
 			{"COLOR", 2, DXGI_FORMAT_R32G32B32_FLOAT,
@@ -379,7 +381,7 @@ void cg::renderer::dx12_renderer::create_constant_buffer_view(const ComPtr<ID3D1
 void cg::renderer::dx12_renderer::load_assets()
 {
 	create_root_signature(nullptr, 0);
-	create_pso("shader.hlsl");
+	create_pso("shaders.hlsl");
 	create_command_allocators();
 	create_command_list();
 
@@ -527,7 +529,7 @@ void cg::renderer::dx12_renderer::populate_command_list()
 
 void cg::renderer::dx12_renderer::move_to_next_frame()
 {
-	const UINT16 current_fence_value = fence_values[frame_index];
+	const UINT64 current_fence_value = fence_values[frame_index];
 	THROW_IF_FAILED(command_queue->Signal(fence.Get(), current_fence_value));
 	frame_index = swap_chain->GetCurrentBackBufferIndex();
 	if (fence->GetCompletedValue() < fence_values[frame_index])
@@ -535,7 +537,7 @@ void cg::renderer::dx12_renderer::move_to_next_frame()
 		THROW_IF_FAILED(fence->SetEventOnCompletion(fence_values[frame_index], fence_event));
 		WaitForSingleObjectEx(fence_event, INFINITE, FALSE);
 	}
-	fence_values[frame_index] - current_fence_value + 1;
+	fence_values[frame_index] = current_fence_value + 1;
 }
 
 void cg::renderer::dx12_renderer::wait_for_gpu()
